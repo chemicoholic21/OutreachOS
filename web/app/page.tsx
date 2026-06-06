@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 type Application = {
   id: string;
@@ -74,6 +74,13 @@ export default function Home() {
     assigned_to: "agent_outreach",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [csvBusy, setCsvBusy] = useState(false);
+  const [csvResult, setCsvResult] = useState<{
+    created: number;
+    skipped: number;
+    errors: string[];
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -124,6 +131,31 @@ export default function Home() {
     setNewApp({ name: "", text: "" });
     setSubmitting(false);
     fetchAll();
+  };
+
+  const uploadCsv = async (file: File) => {
+    setCsvBusy(true);
+    setCsvResult(null);
+    try {
+      const csv = await file.text();
+      const res = await fetch("/api/applications/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv }),
+      });
+      const data = await res.json();
+      setCsvResult({
+        created: data.created ?? 0,
+        skipped: data.skipped ?? 0,
+        errors: data.errors ?? (data.error ? [data.error] : []),
+      });
+    } catch {
+      setCsvResult({ created: 0, skipped: 0, errors: ["Upload failed."] });
+    } finally {
+      setCsvBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      fetchAll();
+    }
   };
 
   const submitTask = async () => {
@@ -256,6 +288,67 @@ export default function Home() {
             >
               {submitting ? "Submitting..." : "Submit for Agent Screening"}
             </button>
+          </div>
+
+          {/* Bulk CSV upload */}
+          <div className="bg-white border rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-medium text-gray-700">
+                Bulk Upload Candidates (CSV)
+              </p>
+              <a
+                href="/sample-applications.csv"
+                download
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Download sample CSV
+              </a>
+            </div>
+            <p className="text-xs text-gray-400 mb-3">
+              Requires a header row with an <code>applicant_name</code> column and
+              a <code>raw_text</code> column. Each row is queued for agent
+              screening.
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                disabled={csvBusy}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) uploadCsv(f);
+                }}
+                className="text-sm file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-900 file:text-white hover:file:bg-gray-700 file:cursor-pointer disabled:opacity-50"
+              />
+              {csvBusy && (
+                <span className="text-xs text-gray-500">Uploading…</span>
+              )}
+            </div>
+            {csvResult && (
+              <div className="mt-3 text-sm">
+                <p className="text-gray-700">
+                  <span className="font-medium text-green-700">
+                    {csvResult.created} created
+                  </span>
+                  {csvResult.skipped > 0 && (
+                    <span className="text-gray-500">
+                      {" "}
+                      · {csvResult.skipped} skipped
+                    </span>
+                  )}
+                </p>
+                {csvResult.errors.length > 0 && (
+                  <ul className="mt-2 space-y-0.5 max-h-28 overflow-y-auto">
+                    {csvResult.errors.map((err, i) => (
+                      <li key={i} className="text-xs text-red-600">
+                        • {err}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">

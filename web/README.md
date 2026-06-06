@@ -33,6 +33,21 @@ double-process a task:
 3. **Frontend poll** — the UI pings `/api/cron/tick` on each 3s refresh, so
    progress happens even on the Hobby plan where cron is coarse.
 
+## Bulk CSV upload
+
+The Applications tab has a **Bulk Upload Candidates (CSV)** card. Pick a `.csv`
+file and every row is queued for agent screening in one shot.
+
+- **Format:** a header row with a name column (`applicant_name`, `name`,
+  `candidate`, …) and a text column (`raw_text`, `text`, `application`, …).
+  Quoted fields with embedded commas/newlines are supported.
+- **Endpoint:** `POST /api/applications/bulk` with `{ "csv": "<raw csv>" }`
+  (or send raw CSV as the request body). Returns `{ created, skipped, errors }`
+  with per-row error messages for anything skipped (missing name/text). Capped at
+  1000 rows per upload.
+- A **sample CSV** is downloadable from the card (served at
+  `/sample-applications.csv`).
+
 ## LLM providers
 
 Priority: `ANTHROPIC_API_KEY` → `NVIDIA_API_KEY` → offline **mock** (deterministic
