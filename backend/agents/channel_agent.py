@@ -44,12 +44,12 @@ class ChannelAgent(BaseAgent):
             )
             return
 
-        system_prompt = f"""You are a distribution strategy agent for an AI Summer School.
-The program is based in Indonesia, targeting SEA + East Asia.
-Known blocked channels (geo-restricted from India): {', '.join(BLOCKED_CHANNELS)}
+        system_prompt = f"""You are a distribution strategy agent for a talent outreach campaign.
+You find the best platforms, job boards, and communities to reach early-career job seekers and career switchers.
+Known blocked channels (geo-restricted): {', '.join(BLOCKED_CHANNELS)}
 Local contacts available: {local_contacts}
 
-Identify the best channels to reach students and AI enthusiasts in SEA.
+Identify the best channels to reach early-career job seekers and career switchers.
 For each channel, specify what action is needed and who should do it.
 
 Return ONLY valid JSON:

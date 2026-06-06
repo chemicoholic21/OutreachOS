@@ -139,7 +139,7 @@ export default function App() {
       <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold">AgentOS</h1>
-          <p className="text-xs text-gray-400">AI Foundations Summer School — Coordination Layer</p>
+          <p className="text-xs text-gray-400">Candidate Screening &amp; Outreach — Coordination Layer</p>
         </div>
         <div className="flex gap-2">
           {["applications", "tasks", "timeline", "memory"].map(t => (
@@ -245,7 +245,7 @@ export default function App() {
           <div className="bg-white border rounded-lg p-4 mb-6 flex gap-3">
             <input
               className="flex-1 border rounded px-3 py-2 text-sm"
-              placeholder="Task title (e.g. Generate outreach messages for SEA connectors)"
+              placeholder="Task title (e.g. Generate outreach messages for recruiter connectors)"
               value={newTask.title}
               onChange={e => setNewTask(p => ({ ...p, title: e.target.value }))}
               onKeyDown={e => e.key === "Enter" && submitTask()}

@@ -1,6 +1,6 @@
-"""Offline fallback that mimics Claude's JSON responses.
+"""Offline fallback that mimics an LLM's JSON responses.
 
-Used when ANTHROPIC_API_KEY is not set so the full coordination loop
+Used when no provider API key is set so the full coordination loop
 (screening, outreach, channel blocking, memory, approvals) can be demoed
 end-to-end without network access. Returns the exact JSON shapes each
 agent's parser expects.
@@ -43,16 +43,16 @@ def _screen(user_message: str, memory: dict) -> str:
     if reject_signals and not (build_signals and learn_signals):
         decision, score = "REJECT", 3
         reasoning = (
-            f"{name}'s primary motivation is startup/business gain rather "
-            "than learning or a genuine career change into AI."
+            f"{name}'s primary motivation is founding a startup rather than "
+            "seeking a role or making a genuine career switch."
         )
-        signals = ["startup-first motivation", "not a learning-focused goal"]
+        signals = ["startup-first motivation", "not actively job-seeking"]
         rejection_reason = "startup-founding motivation"
     elif build_signals and learn_signals:
         decision, score = "APPROVE", 9
         reasoning = (
             f"{name} has been building hands-on projects and shows strong "
-            "motivation to learn and grow into an AI career."
+            "motivation to learn and grow into a new career."
         )
         signals = ["hands-on builder", "strong learning motivation"]
         rejection_reason = "no hands-on building"
@@ -91,48 +91,47 @@ def _screen(user_message: str, memory: dict) -> str:
 def _outreach(memory: dict) -> str:
     template = memory.get(
         "proven_template",
-        "Hey {name}, if you are still in touch with juniors or people "
-        "reaching out about AI opportunities, could you share this with "
-        "them? Stay and food are free! {link}",
+        "Hey {name}, if you are still in touch with early-career folks or "
+        "people looking to switch careers, could you share this opportunity "
+        "with them? {link}",
     )
     return json.dumps(
         {
             "messages": [
                 {
-                    "profile_type": "University professor in Indonesia",
+                    "profile_type": "University career-services coordinator",
                     "platform": "LinkedIn",
                     "message": (
-                        "Hey Prof. [Name], I'm helping run a free AI "
-                        "Foundations Summer School here in Indonesia — "
-                        "accommodation and food fully covered. If any of "
-                        "your students are curious about getting into AI, "
+                        "Hey [Name], I work with early-career job seekers and "
+                        "career switchers looking for their next role. If any "
+                        "of your students or recent grads are on the hunt, "
                         "would you mind passing this along? [link]"
                     ),
                     "why_this_works": (
-                        "Professors are trusted hubs to motivated students."
+                        "Career-services staff are trusted hubs to job seekers."
                     ),
                 },
                 {
-                    "profile_type": "Senior AI engineer in Philippines",
+                    "profile_type": "Senior engineer / hiring manager",
                     "platform": "LinkedIn",
                     "message": (
                         "Hey [Name], if you're still in touch with juniors "
-                        "breaking into AI, we're running a free summer "
-                        "school (stay + food covered). Could you share it "
-                        "with anyone hungry to learn? [link]"
+                        "trying to break in or switch fields, we're helping "
+                        "connect motivated candidates to opportunities. Could "
+                        "you share it with anyone who'd be a fit? [link]"
                     ),
                     "why_this_works": (
-                        "Senior engineers mentor exactly our target learners."
+                        "Hiring managers know exactly who's a strong fit."
                     ),
                 },
                 {
-                    "profile_type": "Community organizer in Malaysia",
+                    "profile_type": "Community organizer / meetup host",
                     "platform": "LinkedIn DM or WhatsApp",
                     "message": (
-                        "Hi [Name]! Your community is full of people we'd "
-                        "love to reach — a free AI summer school, food and "
-                        "stay included. Mind dropping this in your group? "
-                        "[link]"
+                        "Hi [Name]! Your community is full of people we'd love "
+                        "to reach — early-career folks and career switchers "
+                        "looking for their next role. Mind dropping this in "
+                        "your group? [link]"
                     ),
                     "why_this_works": (
                         "Organizers broadcast to large, relevant audiences."
@@ -150,24 +149,24 @@ def _channel(memory: dict) -> str:
         {
             "channels": [
                 {
-                    "platform": "LinkedIn (SEA tech groups)",
-                    "region": "Indonesia / Philippines / Malaysia",
-                    "action": "Post in regional AI and student groups",
+                    "platform": "LinkedIn (job-seeker & early-career groups)",
+                    "region": "Global",
+                    "action": "Post in early-career and career-switch groups",
                     "who": "agent",
                     "status": "ready",
                     "estimated_reach": "5000+",
                 },
                 {
-                    "platform": "WhatsApp university groups",
-                    "region": "Indonesia",
-                    "action": "Share via connector contacts",
+                    "platform": "University career portals & alumni groups",
+                    "region": "Global",
+                    "action": "Share via career-services connector contacts",
                     "who": "local_contact",
                     "status": "ready",
                     "estimated_reach": "1500",
                 },
                 {
-                    "platform": "Naver / Korean dev cafes",
-                    "region": "South Korea",
+                    "platform": "Regional job boards & dev communities",
+                    "region": "Localized",
                     "action": f"Local contact to post ({contacts})",
                     "who": "local_contact",
                     "status": "ready",

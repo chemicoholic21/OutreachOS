@@ -39,7 +39,10 @@ if ANTHROPIC_API_KEY and anthropic is not None:
 elif NVIDIA_API_KEY and OpenAI is not None:
     try:
         _client = OpenAI(
-            api_key=NVIDIA_API_KEY, base_url=NVIDIA_BASE_URL
+            api_key=NVIDIA_API_KEY,
+            base_url=NVIDIA_BASE_URL,
+            timeout=120.0,
+            max_retries=1,
         )
         PROVIDER = "nvidia"
         MODEL = NVIDIA_MODEL

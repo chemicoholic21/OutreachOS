@@ -25,11 +25,21 @@ def process_task(task):
 
     print(f"[Worker] {task.title} → {task.assigned_to}")
 
-    if task.assigned_to == "agent_screening":
-        # Description holds the application_id
-        agent.screen_application(task.id, task.description)
-    else:
-        agent.run(task.id, task.title, task.description or "")
+    try:
+        if task.assigned_to == "agent_screening":
+            # Description holds the application_id
+            agent.screen_application(task.id, task.description)
+        else:
+            agent.run(task.id, task.title, task.description or "")
+    except Exception as e:
+        # Never leave a task stuck IN_PROGRESS if the model call fails/times out.
+        print(f"[Worker] task {task.id} failed: {e}")
+        agent.update_task(
+            task.id,
+            status="BLOCKED",
+            block_reason=f"Model call failed: {e}",
+            block_question="Retry, or handle this one manually.",
+        )
 
 
 def handle_approved_channel_tasks():
