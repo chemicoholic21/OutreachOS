@@ -11,16 +11,42 @@ try:
 except Exception:  # pragma: no cover
     anthropic = None
 
-API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
-MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
-USE_MOCK = not API_KEY or anthropic is None
+try:
+    from openai import OpenAI
+except Exception:  # pragma: no cover
+    OpenAI = None
 
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "").strip()
+NVIDIA_BASE_URL = os.getenv(
+    "NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1"
+)
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "meta/llama-3.3-70b-instruct")
+
+# Provider selection: Anthropic (if key) > NVIDIA NIM (if key) > offline mock.
+PROVIDER = "mock"
+MODEL = None
 _client = None
-if not USE_MOCK:
+
+if ANTHROPIC_API_KEY and anthropic is not None:
     try:
-        _client = anthropic.Anthropic(api_key=API_KEY)
+        _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        PROVIDER = "anthropic"
+        MODEL = CLAUDE_MODEL
     except Exception:
-        USE_MOCK = True
+        PROVIDER = "mock"
+elif NVIDIA_API_KEY and OpenAI is not None:
+    try:
+        _client = OpenAI(
+            api_key=NVIDIA_API_KEY, base_url=NVIDIA_BASE_URL
+        )
+        PROVIDER = "nvidia"
+        MODEL = NVIDIA_MODEL
+    except Exception:
+        PROVIDER = "mock"
+
+USE_MOCK = PROVIDER == "mock"
 
 
 class BaseAgent:
@@ -121,13 +147,28 @@ class BaseAgent:
                 f"{json.dumps(memory, indent=2)}"
             )
 
-        if USE_MOCK:
+        if PROVIDER == "mock":
             return mock.respond(self.name, system_prompt, user_message, memory)
 
-        response = _client.messages.create(
+        full_system = system_prompt + memory_context
+
+        if PROVIDER == "anthropic":
+            response = _client.messages.create(
+                model=MODEL,
+                max_tokens=1000,
+                system=full_system,
+                messages=[{"role": "user", "content": user_message}],
+            )
+            return response.content[0].text
+
+        # PROVIDER == "nvidia" — OpenAI-compatible chat completions.
+        response = _client.chat.completions.create(
             model=MODEL,
             max_tokens=1000,
-            system=system_prompt + memory_context,
-            messages=[{"role": "user", "content": user_message}],
+            temperature=0.2,
+            messages=[
+                {"role": "system", "content": full_system},
+                {"role": "user", "content": user_message},
+            ],
         )
-        return response.content[0].text
+        return response.choices[0].message.content
