@@ -24,13 +24,26 @@ a human for local contacts when needed.
 - **Database:** PostgreSQL
 - **Agents:** Claude API (`claude-sonnet-4-20250514`)
 
-## Mock mode
+## LLM providers
 
-If `ANTHROPIC_API_KEY` is not set, the agents run in **MOCK mode** —
-deterministic offline responses in `backend/agents/mock.py` that produce the
-exact JSON each agent expects. This lets the full coordination loop (screening,
-blocking, human unblock, memory, approvals) be demoed without a key or network.
-Set the key in `backend/.env` to switch to the live Claude API automatically.
+The agents pick a provider at startup (priority order):
+
+1. **Anthropic / Claude** — set `ANTHROPIC_API_KEY` (model `CLAUDE_MODEL`,
+   default `claude-sonnet-4-20250514`). Uses the `anthropic` SDK.
+2. **NVIDIA NIM** — set `NVIDIA_API_KEY` (model `NVIDIA_MODEL`, default
+   `meta/llama-3.3-70b-instruct`). NVIDIA's endpoint
+   (`https://integrate.api.nvidia.com/v1`) is **OpenAI-compatible** and hosts
+   Llama / Nemotron models — **not** Claude — so it's used via the `openai`
+   SDK pointed at that base URL.
+3. **Offline MOCK mode** — if neither key is set, deterministic offline
+   responses in `backend/agents/mock.py` produce the exact JSON each agent
+   expects, so the full coordination loop (screening, blocking, human unblock,
+   memory, approvals) is demoable without a key or network.
+
+The worker prints the active provider on startup, e.g.
+`mode=LIVE nvidia (meta/llama-3.3-70b-instruct)`. Configure everything in
+`backend/.env` (copy from `.env.example`); the file is gitignored so keys are
+never committed.
 
 ## Run
 

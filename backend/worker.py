@@ -1,11 +1,15 @@
 import time
 
-from database import SessionLocal
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from database import SessionLocal  # noqa: E402
 from models import Task
 from agents.screening_agent import ScreeningAgent
 from agents.outreach_agent import OutreachAgent
 from agents.channel_agent import ChannelAgent
-from agents.base_agent import USE_MOCK
+from agents.base_agent import PROVIDER, MODEL
 
 AGENT_MAP = {
     "agent_screening": ScreeningAgent(),
@@ -55,7 +59,10 @@ def handle_approved_channel_tasks():
 
 
 def run_worker():
-    mode = "MOCK (no ANTHROPIC_API_KEY)" if USE_MOCK else "LIVE Claude API"
+    if PROVIDER == "mock":
+        mode = "MOCK (no API key set)"
+    else:
+        mode = f"LIVE {PROVIDER} ({MODEL})"
     print(f"[Worker] Polling... mode={mode}")
     while True:
         try:
