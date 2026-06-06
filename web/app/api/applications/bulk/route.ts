@@ -1,156 +1,83 @@
 import { NextResponse, after } from "next/server";
 import { sql, ensureSchema } from "@/lib/db";
 import { tick } from "@/lib/agents";
+import { parseApplicationsCsv } from "@/lib/csv";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
-// Parse CSV string into rows
-function parseCSV(content: string): string[][] {
-  const rows: string[][] = [];
-  let current = "";
-  let inQuotes = false;
+const MAX_ROWS = 1000;
 
-  for (let i = 0; i < content.length; i++) {
-    const char = content[i];
-    const next = content[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && next === '"') {
-        current += '"';
-        i++; // skip next quote
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === "," && !inQuotes) {
-      rows[rows.length - 1]?.push(current) ?? rows.push([current]);
-      current = "";
-    } else if ((char === "\n" || char === "\r") && !inQuotes) {
-      if (current || rows[rows.length - 1]?.length) {
-        rows[rows.length - 1]?.push(current) ?? rows.push([current]);
-        rows.push([]);
-        current = "";
-      }
-      if (char === "\r" && next === "\n") i++; // skip \r\n
-    } else {
-      current += char;
-    }
-  }
-
-  if (current || rows[rows.length - 1]?.length) {
-    rows[rows.length - 1]?.push(current) ?? rows.push([current]);
-  }
-
-  return rows.filter((r) => r.some((cell) => cell.trim()));
-}
-
-type BulkResult = {
-  total: number;
-  success: number;
-  errors: Array<{ row: number; error: string }>;
-};
-
+/**
+ * Bulk-create applications from CSV. Body: { csv: string } (raw CSV text).
+ * Each valid row becomes a PENDING application + a screening task; the worker
+ * then drains them. Returns counts and any per-row errors.
+ */
 export async function POST(req: Request) {
   await ensureSchema();
-  
+
+  let csvText = "";
   try {
-    const body = await req.json();
-    const { csvData } = body;
-
-    if (!csvData || typeof csvData !== "string") {
-      return NextResponse.json(
-        { error: "Missing or invalid csvData" },
-        { status: 400 }
-      );
+    const ctype = req.headers.get("content-type") || "";
+    if (ctype.includes("application/json")) {
+      const body = await req.json();
+      csvText = String(body.csv ?? "");
+    } else {
+      csvText = await req.text();
     }
+  } catch {
+    return NextResponse.json({ error: "Could not read body" }, { status: 400 });
+  }
 
-    const rows = parseCSV(csvData);
-    if (rows.length < 2) {
-      return NextResponse.json(
-        { error: "CSV must have header row and at least one data row" },
-        { status: 400 }
-      );
-    }
+  if (!csvText.trim()) {
+    return NextResponse.json({ error: "Empty CSV" }, { status: 400 });
+  }
 
-    const header = rows[0];
-    const nameIdx = header.findIndex((h) =>
-      h.toLowerCase().includes("name")
-    );
-    const textIdx = header.findIndex((h) =>
-      h.toLowerCase().includes("text") || h.toLowerCase().includes("application")
-    );
+  const { rows, errors, total } = parseApplicationsCsv(csvText, MAX_ROWS);
 
-    if (nameIdx === -1 || textIdx === -1) {
-      return NextResponse.json(
-        {
-          error:
-            "CSV must have 'name' (or similar) and 'text'/'application' columns",
-        },
-        { status: 400 }
-      );
-    }
-
-    const result: BulkResult = {
-      total: rows.length - 1,
-      success: 0,
-      errors: [],
-    };
-
-    const appIds: string[] = [];
-
-    // Insert applications and create screening tasks
-    for (let i = 1; i < rows.length; i++) {
-      try {
-        const row = rows[i];
-        const name = String(row[nameIdx] || "").trim();
-        const text = String(row[textIdx] || "").trim();
-
-        if (!name || !text) {
-          result.errors.push({
-            row: i + 1, // +1 for CSV line numbering (0-indexed header)
-            error: "Missing name or text/application field",
-          });
-          continue;
-        }
-
-        const [app] = await sql<{ id: string }[]>`
-          INSERT INTO applications (applicant_name, raw_text, status)
-          VALUES (${name}, ${text}, 'PENDING') RETURNING id`;
-
-        appIds.push(app.id);
-
-        // Create screening task
-        await sql`
-          INSERT INTO tasks (title, description, status, assigned_to)
-          VALUES (${`Screen: ${name}`}, ${app.id}, 'BACKLOG', 'agent_screening')`;
-
-        result.success++;
-      } catch (err) {
-        result.errors.push({
-          row: i + 1,
-          error: err instanceof Error ? err.message : "Unknown error",
-        });
-      }
-    }
-
-    // Kick the worker in the background
-    after(async () => {
-      try {
-        await tick();
-      } catch {
-        /* cron + frontend poll are backstops */
-      }
-    });
-
-    return NextResponse.json({
-      ...result,
-      applicationsCreated: appIds,
-      message: `Created ${result.success}/${result.total} applications`,
-    });
-  } catch (err) {
+  if (rows.length === 0) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server error" },
-      { status: 500 }
+      { created: 0, skipped: total, errors },
+      { status: 400 },
     );
   }
+
+  // Bulk insert applications, then a screening task per inserted application.
+  const appValues = rows.map((r) => ({
+    applicant_name: r.applicant_name,
+    raw_text: r.raw_text,
+    status: "PENDING",
+  }));
+
+  const inserted = (await sql`
+    INSERT INTO applications ${sql(appValues, "applicant_name", "raw_text", "status")}
+    RETURNING id, applicant_name`) as unknown as {
+    id: string;
+    applicant_name: string;
+  }[];
+
+  const taskValues = inserted.map((a) => ({
+    title: `Screen: ${a.applicant_name}`,
+    description: a.id,
+    status: "BACKLOG",
+    assigned_to: "agent_screening",
+  }));
+  await sql`
+    INSERT INTO tasks ${sql(taskValues, "title", "description", "status", "assigned_to")}`;
+
+  // Drain in the background; cron + frontend poll are backstops for big batches.
+  after(async () => {
+    try {
+      await tick();
+    } catch {
+      /* backstops handle the rest */
+    }
+  });
+
+  return NextResponse.json({
+    created: inserted.length,
+    skipped: total - inserted.length,
+    errors,
+  });
 }

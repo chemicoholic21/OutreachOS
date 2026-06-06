@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 type Application = {
   id: string;
@@ -74,14 +74,13 @@ export default function Home() {
     assigned_to: "agent_outreach",
   });
   const [submitting, setSubmitting] = useState(false);
-  const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [csvUploading, setCsvUploading] = useState(false);
+  const [csvBusy, setCsvBusy] = useState(false);
   const [csvResult, setCsvResult] = useState<{
-    success: number;
-    total: number;
-    errors: Array<{ row: number; error: string }>;
-    message: string;
+    created: number;
+    skipped: number;
+    errors: string[];
   } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -134,47 +133,29 @@ export default function Home() {
     fetchAll();
   };
 
-  const submitCSV = async () => {
-    if (!csvFile) return;
-    setCsvUploading(true);
+  const uploadCsv = async (file: File) => {
+    setCsvBusy(true);
     setCsvResult(null);
     try {
-      const csvData = await csvFile.text();
-      const response = await fetch("/api/applications/bulk", {
+      const csv = await file.text();
+      const res = await fetch("/api/applications/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ csvData }),
+        body: JSON.stringify({ csv }),
       });
-      const result = await response.json();
-      if (response.ok) {
-        setCsvResult(result);
-        setCsvFile(null);
-        setTimeout(() => {
-          setCsvResult(null);
-          fetchAll();
-        }, 3000);
-      } else {
-        setCsvResult({
-          success: 0,
-          total: 0,
-          errors: [{ row: 0, error: result.error || "Upload failed" }],
-          message: "Error",
-        });
-      }
-    } catch (err) {
+      const data = await res.json();
       setCsvResult({
-        success: 0,
-        total: 0,
-        errors: [
-          {
-            row: 0,
-            error: err instanceof Error ? err.message : "Upload failed",
-          },
-        ],
-        message: "Error",
+        created: data.created ?? 0,
+        skipped: data.skipped ?? 0,
+        errors: data.errors ?? (data.error ? [data.error] : []),
       });
+    } catch {
+      setCsvResult({ created: 0, skipped: 0, errors: ["Upload failed."] });
+    } finally {
+      setCsvBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      fetchAll();
     }
-    setCsvUploading(false);
   };
 
   const submitTask = async () => {
@@ -309,64 +290,62 @@ export default function Home() {
             </button>
           </div>
 
-          {/* CSV Bulk Upload */}
+          {/* Bulk CSV upload */}
           <div className="bg-white border rounded-lg p-4 mb-6">
-            <p className="text-sm font-medium text-gray-700 mb-3">
-              Bulk Upload from CSV
-            </p>
-            <p className="text-xs text-gray-500 mb-3">
-              CSV must have &quot;name&quot; and &quot;text&quot; (or
-              &quot;application&quot;) columns. All rows will be submitted for
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-medium text-gray-700">
+                Bulk Upload Candidates (CSV)
+              </p>
+              <a
+                href="/sample-applications.csv"
+                download
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Download sample CSV
+              </a>
+            </div>
+            <p className="text-xs text-gray-400 mb-3">
+              Requires a header row with an <code>applicant_name</code> column and
+              a <code>raw_text</code> column. Each row is queued for agent
               screening.
             </p>
-            <div className="flex gap-3 items-center mb-3">
+            <div className="flex items-center gap-3">
               <input
+                ref={fileInputRef}
                 type="file"
-                accept=".csv"
+                accept=".csv,text/csv"
+                disabled={csvBusy}
                 onChange={(e) => {
-                  setCsvFile(e.target.files?.[0] || null);
-                  setCsvResult(null);
+                  const f = e.target.files?.[0];
+                  if (f) uploadCsv(f);
                 }}
-                className="text-sm"
-                disabled={csvUploading}
+                className="text-sm file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-900 file:text-white hover:file:bg-gray-700 file:cursor-pointer disabled:opacity-50"
               />
-              <button
-                onClick={submitCSV}
-                disabled={!csvFile || csvUploading}
-                className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium disabled:opacity-50"
-              >
-                {csvUploading ? "Uploading..." : "Upload CSV"}
-              </button>
+              {csvBusy && (
+                <span className="text-xs text-gray-500">Uploading…</span>
+              )}
             </div>
-            {csvFile && (
-              <p className="text-xs text-gray-600">
-                Selected: {csvFile.name}
-              </p>
-            )}
             {csvResult && (
-              <div
-                className={`mt-3 p-3 rounded text-sm ${
-                  csvResult.errors.length === 0
-                    ? "bg-green-50 text-green-700 border border-green-200"
-                    : "bg-yellow-50 text-yellow-700 border border-yellow-200"
-                }`}
-              >
-                <p className="font-medium">{csvResult.message}</p>
-                <p className="text-xs mt-1">
-                  {csvResult.success}/{csvResult.total} rows imported
+              <div className="mt-3 text-sm">
+                <p className="text-gray-700">
+                  <span className="font-medium text-green-700">
+                    {csvResult.created} created
+                  </span>
+                  {csvResult.skipped > 0 && (
+                    <span className="text-gray-500">
+                      {" "}
+                      · {csvResult.skipped} skipped
+                    </span>
+                  )}
                 </p>
                 {csvResult.errors.length > 0 && (
-                  <div className="mt-2 text-xs">
-                    <p className="font-medium">Errors:</p>
-                    {csvResult.errors.slice(0, 5).map((err, i) => (
-                      <p key={i}>
-                        Row {err.row}: {err.error}
-                      </p>
+                  <ul className="mt-2 space-y-0.5 max-h-28 overflow-y-auto">
+                    {csvResult.errors.map((err, i) => (
+                      <li key={i} className="text-xs text-red-600">
+                        • {err}
+                      </li>
                     ))}
-                    {csvResult.errors.length > 5 && (
-                      <p>...and {csvResult.errors.length - 5} more</p>
-                    )}
-                  </div>
+                  </ul>
                 )}
               </div>
             )}
