@@ -1,28 +1,29 @@
-# AgentOS — AI Summer School Edition
+# AgentOS — Candidate Screening & Outreach
 
-A coordination layer where humans and agents collaboratively screen applicants,
+A coordination layer where humans and agents collaboratively screen candidates,
 manage outreach, and handle edge cases — with persistent memory, human approval
 loops, and agent-to-agent handoffs.
 
-Built for **James's AI Foundations Summer School** (Indonesia): screen
-applications against real criteria, generate personalized connector outreach,
-and plan distribution channels — getting blocked on geo-restrictions and asking
-a human for local contacts when needed.
+A generic talent outreach tool for **early-career job seekers and career
+switchers**: screen candidate applications against criteria, generate
+personalized outreach to connectors (recruiters, hiring managers, career-services
+staff, community organizers), and plan distribution channels — getting blocked on
+geo-restrictions and asking a human for local contacts when needed.
 
 ## Three Agents
 
 | Agent | Role | Behaviour |
 |-------|------|-----------|
-| **Screening Agent** | Application Screener | Reads each application, scores 1–10 against James's criteria, outputs `APPROVE` / `REJECT` / `MAYBE`. |
+| **Screening Agent** | Application Screener | Reads each candidate application, scores 1–10 against the hiring-readiness criteria, outputs `APPROVE` / `REJECT` / `MAYBE`. |
 | **Outreach Agent** | Message Personalizer | Generates personalized outreach messages per connector profile, then waits for human approval. |
-| **Channel Agent** | Distribution Strategy | Identifies platforms to post on, gets **BLOCKED** on geo-restrictions (China/Korea), and asks the human for a local contact. |
+| **Channel Agent** | Distribution Strategy | Identifies platforms and job boards to post on, gets **BLOCKED** on geo-restrictions (China/Korea), and asks the human for a local contact. |
 
 ## Stack
 
 - **Frontend:** React + Vite + Tailwind CSS
 - **Backend:** FastAPI (Python)
 - **Database:** PostgreSQL
-- **Agents:** Claude API (`claude-sonnet-4-20250514`)
+- **Agents:** Claude API (`claude-sonnet-4-20250514`) or NVIDIA NIM (Llama / Nemotron)
 
 ## LLM providers
 

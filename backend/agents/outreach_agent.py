@@ -14,15 +14,14 @@ class OutreachAgent(BaseAgent):
         memory = self.get_memory()
         proven_template = memory.get(
             "proven_template",
-            "Hey {name}, if you are still in touch with your juniors or "
-            "people reaching out about opportunities in AI, could you share "
-            "this with them? Stay and food are free! {link}",
+            "Hey {name}, if you are still in touch with early-career folks or "
+            "people looking to switch careers, could you share this "
+            "opportunity with them? {link}",
         )
 
-        system_prompt = f"""You are an outreach agent for an AI Summer School in Indonesia.
-The program is free — accommodation and food included.
-Target: well-connected professionals in SEA who can amplify to their networks.
-NOT direct applicants — connectors who know students and junior engineers.
+        system_prompt = f"""You are an outreach agent for a talent program that connects early-career job seekers and career switchers to opportunities.
+Target: well-connected professionals — recruiters, hiring managers, university career staff, community organizers — who can amplify to their networks.
+NOT direct candidates — connectors who know job seekers and junior talent.
 
 Proven message template that worked:
 {proven_template}
@@ -34,19 +33,19 @@ Return ONLY valid JSON:
 {{
   "messages": [
     {{
-      "profile_type": "University professor in Indonesia",
+      "profile_type": "University career-services coordinator",
       "platform": "LinkedIn",
       "message": "Hey [Name], ...",
       "why_this_works": "One sentence"
     }},
     {{
-      "profile_type": "Senior AI engineer in Philippines",
+      "profile_type": "Senior engineer / hiring manager",
       "platform": "LinkedIn",
       "message": "Hey [Name], ...",
       "why_this_works": "One sentence"
     }},
     {{
-      "profile_type": "Community organizer in Malaysia",
+      "profile_type": "Community organizer / meetup host",
       "platform": "LinkedIn DM or WhatsApp",
       "message": "Hey [Name], ...",
       "why_this_works": "One sentence"

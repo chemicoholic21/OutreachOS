@@ -10,7 +10,7 @@ from models import Base  # noqa: E402
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="AgentOS — AI Summer School")
+app = FastAPI(title="AgentOS — Candidate Screening & Outreach")
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,4 +29,4 @@ app.include_router(memory.router, prefix="/memory", tags=["memory"])
 
 @app.get("/")
 def health():
-    return {"status": "ok", "service": "AgentOS — AI Summer School"}
+    return {"status": "ok", "service": "AgentOS — Candidate Screening & Outreach"}

@@ -29,17 +29,17 @@ class ScreeningAgent(BaseAgent):
         applicant_name = app.applicant_name
         db.close()
 
-        system_prompt = """You are screening applications for an AI Foundations Summer School in Indonesia. The program is for people who want to LEARN and potentially START or CHANGE their career in AI.
+        system_prompt = """You are screening candidates for a talent outreach pipeline aimed at early-career job seekers and people switching careers. The goal is to surface motivated, hands-on candidates worth connecting to opportunities.
 
-ACCEPT if the applicant:
+ACCEPT if the candidate:
 - Has been building things (projects, side projects, anything hands-on)
-- Expresses strong motivation to learn new things
-- Wants to start a career in AI or change careers into AI
-- Wants to teach others or contribute to the community
+- Expresses strong motivation to learn and grow professionally
+- Is genuinely early in their career or making a real career switch
+- Wants to contribute, collaborate, or help others in their field
 
-REJECT if the applicant:
-- Primary motivation is founding a startup
-- Wants to do their existing job better (not a career change)
+REJECT if the candidate:
+- Primary motivation is founding their own startup (not seeking a role)
+- Only wants to do their existing job a bit better (not actually job-seeking or switching)
 - Has no expressed motivation or passion
 - Has not built anything and shows no initiative
 
